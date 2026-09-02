@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SYSTEM BREACH</title>
+<style>
+  :root{
+    --green: #00ff66;
+    --green-dim: #0a5c2b;
+    --red: #ff0033;
+    --red-dim: #5c0016;
+    --bg: #030603;
+    --fg-shadow: rgba(0,255,102,0.5);
+    --font: 'Courier New', Courier, monospace;
+    --letter-space: 2px;
+  }
+  html[data-theme="horror"]{
+    --green: #c40010;
+    --green-dim: #4a0008;
+    --red: #ff0022;
+    --red-dim: #2b0004;
+    --bg: #050202;
+    --fg-shadow: rgba(196,0,16,0.55);
+    --font: 'Georgia', 'Times New Roman', serif;
+    --letter-space: 3px;
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{
+    height:100%;
+    background:var(--bg);
+    color:var(--green);
+    font-family:var(--font);
+    overflow:hidden;
+  }
+  html[data-theme="horror"] body{ animation:bodyflicker 7s infinite; }
+  @keyframes bodyflicker{
+    0%,96%,100%{ filter:brightness(1); }
+    97%{ filter:brightness(1.3) contrast(1.1); }
+    98%{ filter:brightness(0.7); }
+    99%{ filter:brightness(1.1); }
+  }
+
+  #bgcanvas{
+    position:fixed; inset:0; z-index:0; opacity:0.55;
+  }
+  .scanlines{
+    position:fixed; inset:0; z-index:5; pointer-events:none;
+    background:repeating-linear-gradient(
+      to bottom,
+      rgba(0,0,0,0) 0px,
+      rgba(0,0,0,0) 2px,
+      var(--fg-shadow) 3px,
+      rgba(0,0,0,0) 4px
+    );
+    opacity:0.06;
+    mix-blend-mode:overlay;
+  }
+  .vignette{
+    position:fixed; inset:0; z-index:4; pointer-events:none;
+    box-shadow: inset 0 0 180px 40px rgba(0,0,0,0.85);
+  }
+  html[data-theme="horror"] .vignette{
+    box-shadow: inset 0 0 220px 70px rgba(0,0,0,0.94);
+  }
+
+  .stage{
+    position:relative; z-index:10;
+    height:100vh; width:100vw;
+    display:none;
+    align-items:center; justify-content:center;
+    flex-direction:column;
+    text-align:center;
+    padding:24px;
+  }
+  .stage.active{display:flex;}
+
+  .terminal-tag{
+    position:fixed; top:14px; left:18px; z-index:20;
+    font-size:11px; letter-spacing:2px; color:var(--green-dim);
+    text-shadow:0 0 6px var(--green-dim);
+    font-family:'Courier New', monospace;
+  }
+  .terminal-tag span{color:var(--green);}
+
+  .theme-toggle{
+    position:fixed; top:12px; right:16px; z-index:20;
+    display:flex; gap:6px;
+  }
+  .theme-btn{
+    background:transparent;
+    border:1px solid var(--green-dim);
+    color:var(--green-dim);
+    font-family:'Courier New', monospace;
+    font-size:10px;
+    letter-spacing:1px;
+    padding:6px 10px;
+    cursor:pointer;
+  }
+  .theme-btn.active{
+    color:var(--green);
+    border-color:var(--green);
+    text-shadow:0 0 6px var(--fg-shadow);
+  }
+  .theme-btn:hover{ color:var(--green); border-color:var(--green); }
+
+  .panel{
+    border:1px solid var(--green-dim);
+    background:rgba(4,4,4,0.78);
+    padding:34px 30px;
+    max-width:480px;
+    width:100%;
+    box-shadow:0 0 25px var(--fg-shadow), inset 0 0 40px rgba(0,0,0,0.4);
+  }
+
+  .glitch{
+    font-size:clamp(28px, 6vw, 52px);
+    font-weight:700;
+    letter-spacing:var(--letter-space);
+    color:var(--red);
+    text-shadow:
+      0 0 10px var(--red),
+      2px 0 0 rgba(0,255,102,0.5),
+      -2px 0 0 rgba(0, 140, 255, 0.4);
+    animation: glitchshake 3.2s infinite;
+    margin-bottom:18px;
+    line-height:1.15;
+  }
+  html[data-theme="horror"] .glitch{
+    text-shadow:
+      0 0 18px var(--red),
+      0 4px 10px rgba(120,0,0,0.9);
+    animation: glitchshake 3.2s infinite, dripflicker 4.5s infinite;
+  }
+  @keyframes glitchshake{
+    0%,93%,100%{ transform:translate(0,0) skew(0deg); }
+    94%{ transform:translate(-2px,1px) skew(1deg); }
+    95%{ transform:translate(2px,-1px) skew(-1deg); }
+    96%{ transform:translate(-1px,0) skew(0deg); text-shadow:0 0 12px var(--red), 3px 0 0 var(--green); }
+    97%{ transform:translate(1px,1px); }
+  }
+  @keyframes dripflicker{
+    0%,90%,100%{ opacity:1; }
+    91%{ opacity:0.5; }
+    92%{ opacity:1; }
+    93%{ opacity:0.3; }
+    94%{ opacity:1; }
+  }
+
+  .subtext{
+    color:var(--green);
+    opacity:0.75;
+    font-size:13px;
+    letter-spacing:1px;
+    margin-bottom:22px;
+    font-family:'Courier New', monospace;
+  }
+
+  input[type=password]{
+    width:100%;
+    background:#000;
+    border:1px solid var(--green-dim);
+    color:var(--green);
+    font-family:'Courier New', monospace;
+    font-size:20px;
+    letter-spacing:8px;
+    text-align:center;
+    padding:12px 10px;
+    outline:none;
+  }
+  input[type=password]:focus{
+    border-color:var(--green);
+    box-shadow:0 0 10px var(--fg-shadow);
+  }
+
+  .btn{
+    margin-top:16px;
+    width:100%;
+    padding:13px 10px;
+    background:transparent;
+    border:1px solid var(--green);
+    color:var(--green);
+    font-family:'Courier New', monospace;
+    font-size:14px;
+    letter-spacing:3px;
+    cursor:pointer;
+    transition:0.15s;
+  }
+  .btn:hover{ background:var(--green); color:#000; box-shadow:0 0 20px var(--green); }
+
+  .btn-danger{
+    border-color:var(--red);
+    color:var(--red);
+  }
+  .btn-danger:hover{ background:var(--red); color:#000; box-shadow:0 0 25px var(--red); }
+
+  .btn-ghost{
+    border-color:#333;
+    color:#888;
+    font-size:11px;
+    padding:8px;
+  }
+  .btn-ghost:hover{ background:#222; color:#ccc; box-shadow:none; }
+
+  .error{
+    color:var(--red);
+    font-size:12px;
+    letter-spacing:1px;
+    margin-top:10px;
+    min-height:16px;
+    font-family:'Courier New', monospace;
+  }
+
+  .shake{ animation:shake 0.35s; }
+  @keyframes shake{
+    0%,100%{transform:translateX(0);}
+    20%{transform:translateX(-8px);}
+    40%{transform:translateX(8px);}
+    60%{transform:translateX(-6px);}
+    80%{transform:translateX(6px);}
+  }
+
+  .attack-btn{
+    font-size:22px;
+    padding:26px 20px;
+    letter-spacing:6px;
+    border:2px solid var(--red);
+    color:var(--red);
+    background:rgba(255,0,51,0.05);
+    animation:pulse 1.6s infinite;
+  }
+  @keyframes pulse{
+    0%,100%{ box-shadow:0 0 10px rgba(255,0,51,0.4); }
+    50%{ box-shadow:0 0 35px rgba(255,0,51,0.9); }
+  }
+  .attack-btn:hover{ background:var(--red); color:#000; }
+
+  .terms-box{
+    text-align:left;
+    max-height:220px;
+    overflow-y:auto;
+    border:1px solid var(--green-dim);
+    padding:14px;
+    font-size:12px;
+    line-height:1.6;
+    color:var(--green);
+    opacity:0.85;
+    margin-bottom:18px;
+    background:#000;
+    font-family:'Courier New', monospace;
+  }
+  .terms-box strong{ color:var(--red); }
+
+  .timer-display{
+    font-size:clamp(50px, 12vw, 96px);
+    font-weight:700;
+    color:var(--red);
+    text-shadow:0 0 25px var(--red);
+    letter-spacing:4px;
+    margin:10px 0 6px;
+    font-variant-numeric: tabular-nums;
+    font-family:'Courier New', monospace;
+  }
+  .bar-outer{
+    width:100%; max-width:420px; height:6px;
+    background:#1a0006; border:1px solid var(--red-dim);
+    margin:18px 0 26px;
+  }
+  .bar-inner{
+    height:100%; background:var(--red);
+    box-shadow:0 0 10px var(--red);
+    width:100%;
+    transition:width 1s linear;
+  }
+
+  .danger-icon{
+    font-size:90px;
+    color:var(--red);
+    text-shadow:0 0 30px var(--red);
+    animation:flash 0.6s infinite;
+    margin-bottom:10px;
+  }
+  @keyframes flash{
+    0%,100%{ opacity:1; }
+    50%{ opacity:0.35; }
+  }
+
+  .redflash-overlay{
+    position:fixed; inset:0; z-index:3; pointer-events:none;
+    background:rgba(255,0,51,0);
+    animation:redpulse 1.4s infinite;
+  }
+  @keyframes redpulse{
+    0%,100%{ background:rgba(255,0,51,0); }
+    50%{ background:rgba(255,0,51,0.06); }
+  }
+
+  .log-link{
+    position:fixed; bottom:12px; right:16px; z-index:20;
+    font-size:10px; color:#2b2b2b; letter-spacing:1px;
+    cursor:pointer; text-decoration:underline;
+    font-family:'Courier New', monospace;
+  }
+  .log-link:hover{ color:#666; }
+
+  .sync-note{
+    position:fixed; bottom:12px; left:18px; z-index:20;
+    font-size:10px; color:#2b2b2b; letter-spacing:1px;
+    font-family:'Courier New', monospace;
+  }
+
+  .modal-backdrop{
+    position:fixed; inset:0; z-index:50;
+    background:rgba(0,0,0,0.85);
+    display:none;
+    align-items:center; justify-content:center;
+  }
+  .modal-backdrop.active{ display:flex; }
+  .modal{
+    background:#050505; border:1px solid var(--green-dim);
+    width:90%; max-width:520px; max-height:70vh;
+    padding:20px; overflow-y:auto;
+    font-family:'Courier New', monospace;
+  }
+  .modal h3{ font-size:14px; letter-spacing:2px; margin-bottom:12px; color:var(--green); }
+  table{ width:100%; border-collapse:collapse; font-size:11px; }
+  th,td{ border-bottom:1px solid #1a1a1a; padding:6px 4px; text-align:left; color:var(--green); opacity:0.85;}
+  th{ color:var(--green); opacity:1; }
+  .modal-actions{ display:flex; gap:10px; margin-top:14px; }
+  .modal-actions .btn{ margin-top:0; }
+
+  .small-note{ font-size:10px; color:#3a3a3a; margin-top:14px; letter-spacing:1px; }
+</style>
+</head>
+<body>
+
+<canvas id="bgcanvas"></canvas>
+<div class="scanlines"></div>
+<div class="vignette"></div>
+<div class="terminal-tag">root@breach:~$ <span id="statusTag">CONNECTING...</span></div>
+
+<div class="theme-toggle">
+  <button class="theme-btn active" id="themeMatrix" data-theme="matrix">MATRIX</button>
+  <button class="theme-btn" id="themeHorror" data-theme="horror">HORROR</button>
+</div>
+
+<!-- LOCK 1 -->
+<div class="stage" id="screen-lock1">
+  <div class="panel">
+    <div class="glitch" style="font-size:26px;">RESTRICTED SYSTEM</div>
+    <div class="subtext">ENTER ACCESS CODE TO PROCEED</div>
+    <form id="form1" autocomplete="off">
+      <input type="password" id="pass1" maxlength="10" placeholder="••••" inputmode="numeric">
+      <button type="submit" class="btn">UNLOCK</button>
+      <div class="error" id="err1"></div>
+    </form>
+  </div>
+</div>
+
+<!-- STAGE 2: Attack button -->
+<div class="stage" id="screen-stage2">
+  <div class="glitch">DESTROY ANKIT LIFE</div>
+  <div class="subtext">ACCESS GRANTED — AWAITING COMMAND</div>
+  <button class="btn attack-btn" id="attackBtn" style="max-width:340px;">⚠ ATTACK ⚠</button>
+</div>
+
+<!-- LOCK 2 -->
+<div class="stage" id="screen-lock2">
+  <div class="panel">
+    <div class="glitch" style="font-size:24px; color:var(--red);">CONFIRM ATTACK</div>
+    <div class="subtext">SECOND AUTHORIZATION CODE REQUIRED</div>
+    <form id="form2" autocomplete="off">
+      <input type="password" id="pass2" maxlength="10" placeholder="••••" inputmode="numeric">
+      <button type="submit" class="btn btn-danger">AUTHORIZE</button>
+      <div class="error" id="err2"></div>
+    </form>
+  </div>
+</div>
+
+<!-- TERMS -->
+<div class="stage" id="screen-terms">
+  <div class="panel" style="max-width:520px;">
+    <div class="glitch" style="font-size:22px;">TERMS &amp; CONDITIONS</div>
+    <div class="terms-box">
+      1. By pressing AGREE, you initiate a 10:00 countdown.<br><br>
+      2. <strong>The operation can only be cancelled while the countdown is running.</strong><br><br>
+      3. Once the countdown reaches zero, the operation is considered complete and <strong>cannot be reversed.</strong><br><br>
+      4. This countdown is shared — anyone who opens this page while it is running will see the exact same clock.<br><br>
+      5. Every start, cancel, and completion event is written to the incident log with a timestamp.<br><br>
+      6. <strong>This website upload all files and photos that destroy Ankit life.</strong><br><br>
+      7. <strong> It also leave comment on random people post on instrgram that destroy Ankit life</strong><br><br>
+      8. Due to safety reasons we add a password options
+    </div>
+    <button class="btn btn-danger" id="agreeBtn">I AGREE — START</button>
+    <div class="error" id="errAgree"></div>
+  </div>
+</div>
+
+<!-- LOCK 3 (stop) -->
+<div class="stage" id="screen-lock3">
+  <div class="panel">
+    <div class="glitch" style="font-size:22px;">ABORT SEQUENCE</div>
+    <div class="subtext">ENTER OVERRIDE CODE TO STOP THE TIMER</div>
+    <form id="form3" autocomplete="off">
+      <input type="password" id="pass3" maxlength="10" placeholder="••••" inputmode="numeric">
+      <button type="submit" class="btn">STOP TIMER</button>
+      <button type="button" class="btn btn-ghost" id="backToTimer">BACK</button>
+      <div class="error" id="err3"></div>
+    </form>
+  </div>
+</div>
+
+<!-- TIMER -->
+<div class="stage" id="screen-timer">
+  <div class="subtext">ATTACK IN PROGRESS</div>
+  <div class="timer-display" id="timerDisplay">10:00</div>
+  <div class="bar-outer"><div class="bar-inner" id="timerBar"></div></div>
+  <button class="btn btn-danger" id="stopBtn" style="max-width:260px;">STOP TIMER</button>
+</div>
+
+<!-- COMPLETED -->
+<div class="stage" id="screen-completed">
+  <div class="redflash-overlay"></div>
+  <div class="danger-icon">☠</div>
+  <div class="glitch" style="font-size:38px;">ATTACK EXECUTED</div>
+  <div class="subtext" style="color:var(--red); opacity:1;">TIMER REACHED 00:00 — OPERATION COMPLETE</div>
+  <button class="btn btn-ghost" id="resetBtn" style="max-width:220px; margin-top:26px;">reset (admin)</button>
+</div>
+
+<div class="log-link" id="openLog">incident log</div>
+<div class="sync-note" id="syncNote">● checking sync...</div>
+
+<div class="modal-backdrop" id="logModal">
+  <div class="modal">
+    <h3>INCIDENT LOG</h3>
+    <table>
+      <thead><tr><th>Event</th><th>Timestamp</th></tr></thead>
+      <tbody id="logBody"></tbody>
+    </table>
+    <div class="modal-actions">
+      <button class="btn" id="exportCsv">EXPORT AS EXCEL (CSV)</button>
+      <button class="btn btn-ghost" id="closeLog">CLOSE</button>
+    </div>
+    <div class="small-note" id="modalSyncNote">Log is shared and stored server-side — every visitor sees the same entries.</div>
+  </div>
+</div>
+
+
+
+<audio id="attackAudio" src="audio.mp3" loop></audio>
+
+
+
+<script>
+// ---------- Theme handling ----------
+const THEME_KEY = 'ankit-theme-pref';
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('themeMatrix').classList.toggle('active', theme==='matrix');
+  document.getElementById('themeHorror').classList.toggle('active', theme==='horror');
+  try{ localStorage.setItem(THEME_KEY, theme); }catch(e){}
+}
+document.getElementById('themeMatrix').addEventListener('click', ()=>applyTheme('matrix'));
+document.getElementById('themeHorror').addEventListener('click', ()=>applyTheme('horror'));
+let savedTheme = 'matrix';
+try{ savedTheme = localStorage.getItem(THEME_KEY) || 'matrix'; }catch(e){}
+applyTheme(savedTheme);
+
+// ---------- Background canvas: matrix rain OR bloody static, depending on theme ----------
+const canvas = document.getElementById('bgcanvas');
+const ctx = canvas.getContext('2d');
+let cols, drops;
+function resizeCanvas(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  cols = Math.floor(canvas.width / 16);
+  drops = new Array(cols).fill(1);
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+const matrixChars = "アイウエオカキクケコサシスセソ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+function drawMatrix(){
+  ctx.fillStyle = 'rgba(3,6,3,0.08)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#00ff66';
+  ctx.font = '14px monospace';
+  for(let i=0;i<drops.length;i++){
+    const text = matrixChars[Math.floor(Math.random()*matrixChars.length)];
+    ctx.fillText(text, i*16, drops[i]*16);
+    if(drops[i]*16 > canvas.height && Math.random() > 0.975){ drops[i]=0; }
+    drops[i]++;
+  }
+}
+
+function drawHorror(){
+  // dark red TV static + occasional blood-drip streaks
+  ctx.fillStyle = 'rgba(5,2,2,0.15)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  const dots = 140;
+  for(let i=0;i<dots;i++){
+    const x = Math.random()*canvas.width;
+    const y = Math.random()*canvas.height;
+    const shade = Math.random();
+    if(shade > 0.985){
+      ctx.fillStyle = 'rgba(196,0,16,0.9)';
+      ctx.fillRect(x, y, 2, 2 + Math.random()*10);
+    } else {
+      ctx.fillStyle = `rgba(${60+Math.random()*40},${5},${5},${Math.random()*0.4})`;
+      ctx.fillRect(x, y, 2, 2);
+    }
+  }
+  if(Math.random() > 0.995){
+    const dripX = Math.random()*canvas.width;
+    ctx.fillStyle = 'rgba(150,0,10,0.5)';
+    ctx.fillRect(dripX, 0, 2, canvas.height*Math.random());
+  }
+}
+
+function drawBg(){
+  const theme = document.documentElement.getAttribute('data-theme');
+  if(theme === 'horror') drawHorror(); else drawMatrix();
+}
+setInterval(drawBg, 60);
+
+// ---------- Audio handling ----------
+// <audio id="attackAudio" src="audio.mp3" loop></audio> must exist in the HTML.
+const attackAudio = document.getElementById('attackAudio');
+function playAttackAudio(){
+  if(!attackAudio) return;
+  attackAudio.currentTime = 0;
+  attackAudio.play().catch(e=>console.warn('Audio play blocked:', e));
+}
+function stopAttackAudio(){
+  if(!attackAudio) return;
+  attackAudio.pause();
+  attackAudio.currentTime = 0;
+}
+
+// ---------- Storage layer: window.storage (synced across everyone) ----------
+// with a localStorage fallback (this device only) so the flow still works
+// if window.storage isn't available in the current context.
+const STATE_KEY = 'ankit-timer-state';
+const LOG_KEY = 'ankit-attack-log';
+const DURATION_MS = 10*60*1000;
+let usingFallback = false;
+
+async function rawGet(key){
+  if(typeof window.storage !== 'undefined' && window.storage){
+    try{
+      const res = await window.storage.get(key, true);
+      return res ? res.value : null;
+    }catch(e){
+      // key genuinely missing throws too — treat as "no value" only if it looks like a not-found;
+      // otherwise fall back to local storage for this session.
+      usingFallback = true;
+    }
+  } else {
+    usingFallback = true;
+  }
+  try{ return localStorage.getItem('fallback_'+key); }catch(e){ return null; }
+}
+async function rawSet(key, value){
+  if(typeof window.storage !== 'undefined' && window.storage && !usingFallback){
+    try{
+      await window.storage.set(key, value, true);
+      return;
+    }catch(e){
+      usingFallback = true;
+    }
+  }
+  try{ localStorage.setItem('fallback_'+key, value); }catch(e){}
+}
+
+async function getState(){
+  const raw = await rawGet(STATE_KEY);
+  return raw ? JSON.parse(raw) : {status:'idle'};
+}
+async function setState(state){
+  await rawSet(STATE_KEY, JSON.stringify(state));
+}
+async function getLog(){
+  const raw = await rawGet(LOG_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+async function appendLog(eventName){
+  const log = await getLog();
+  log.push({event:eventName, timestamp:new Date().toLocaleString()});
+  await rawSet(LOG_KEY, JSON.stringify(log));
+}
+
+function updateSyncNote(){
+  const note = usingFallback
+    ? '● local mode — synced only on this device/browser'
+    : '● live-synced — same clock for every visitor';
+  document.getElementById('syncNote').textContent = note;
+  document.getElementById('modalSyncNote').textContent = usingFallback
+    ? 'Storage sync is unavailable here, so the log/timer are saved to this browser only.'
+    : 'Log is shared and stored server-side — every visitor sees the same entries.';
+}
+
+// ---------- App state machine ----------
+let localStage = 'screen-lock1';
+let manualScreen = null;
+let globalState = {status:'idle'};
+let completionLogged = false;
+let lastKnownStatus = null; // tracks status transitions for audio sync across tabs
+
+function showScreen(id){
+  document.querySelectorAll('.stage').forEach(s=>s.classList.remove('active'));
+  const el = document.getElementById(id);
+  if(el) el.classList.add('active');
+}
+
+function render(){
+  document.getElementById('statusTag').textContent = globalState.status.toUpperCase();
+  updateSyncNote();
+  if(manualScreen){ showScreen(manualScreen); return; }
+  if(globalState.status === 'completed'){ showScreen('screen-completed'); return; }
+  if(globalState.status === 'running'){ showScreen('screen-timer'); return; }
+  showScreen(localStage);
+}
+
+function formatTime(ms){
+  if(ms < 0) ms = 0;
+  const totalSec = Math.floor(ms/1000);
+  const m = Math.floor(totalSec/60).toString().padStart(2,'0');
+  const s = (totalSec%60).toString().padStart(2,'0');
+  return m + ':' + s;
+}
+
+function tickTimerDisplay(){
+  if(globalState.status !== 'running' || !globalState.startTime) return;
+  const remaining = (globalState.startTime + DURATION_MS) - Date.now();
+  document.getElementById('timerDisplay').textContent = formatTime(remaining);
+  document.getElementById('timerBar').style.width = Math.max(0, (remaining/DURATION_MS)*100) + '%';
+  if(remaining <= 0 && !completionLogged){
+    completionLogged = true;
+    completeAttack();
+  }
+}
+
+async function completeAttack(){
+  const fresh = await getState();
+  if(fresh.status === 'running'){
+    await setState({status:'completed'});
+    await appendLog('ATTACK EXECUTED (timer reached 00:00)');
+  }
+  stopAttackAudio();
+  globalState = await getState();
+  lastKnownStatus = globalState.status;
+  render();
+}
+
+async function pollGlobalState(){
+  const fresh = await getState();
+
+  // If status changed away from "running" (e.g. someone else stopped it,
+  // or it completed, or it was reset), make sure audio isn't left playing
+  // on this tab too — keeps every visitor's audio in sync with the shared state.
+  if(lastKnownStatus === 'running' && fresh.status !== 'running'){
+    stopAttackAudio();
+  }
+  // If status changed INTO "running" from elsewhere, start audio here too.
+  if(lastKnownStatus !== 'running' && fresh.status === 'running'){
+    playAttackAudio();
+  }
+  lastKnownStatus = fresh.status;
+
+  globalState = fresh;
+  if(fresh.status !== 'running') completionLogged = false;
+  render();
+}
+setInterval(pollGlobalState, 1500);
+setInterval(tickTimerDisplay, 1000);
+
+// ---------- Form handlers ----------
+function shakeError(inputEl, errEl, msg){
+  errEl.textContent = msg;
+  inputEl.parentElement.classList.add('shake');
+  setTimeout(()=>inputEl.parentElement.classList.remove('shake'), 350);
+  inputEl.value='';
+}
+
+document.getElementById('form1').addEventListener('submit', e=>{
+  e.preventDefault();
+  const val = document.getElementById('pass1').value;
+  if(val === '1111'){
+    localStage = 'screen-stage2';
+    document.getElementById('err1').textContent='';
+    render();
+  } else {
+    shakeError(document.getElementById('pass1'), document.getElementById('err1'), 'ACCESS DENIED — INCORRECT CODE');
+  }
+});
+
+document.getElementById('attackBtn').addEventListener('click', ()=>{
+  localStage = 'screen-lock2';
+  render();
+});
+
+document.getElementById('form2').addEventListener('submit', e=>{
+  e.preventDefault();
+  const val = document.getElementById('pass2').value;
+  if(val === '0011'){
+    localStage = 'screen-terms';
+    document.getElementById('err2').textContent='';
+    render();
+  } else {
+    shakeError(document.getElementById('pass2'), document.getElementById('err2'), 'AUTHORIZATION FAILED');
+  }
+});
+
+document.getElementById('agreeBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('agreeBtn');
+  const errEl = document.getElementById('errAgree');
+  btn.disabled = true;
+  errEl.textContent = '';
+  try{
+    const fresh = await getState();
+    if(fresh.status === 'idle' || !fresh.status){
+      const newState = {status:'running', startTime: Date.now()};
+      await setState(newState);
+      await appendLog('ATTACK TIMER STARTED');
+    }
+    globalState = await getState();
+    lastKnownStatus = globalState.status;
+    completionLogged = false;
+    playAttackAudio();
+    render();
+  } catch(e){
+    errEl.textContent = 'SOMETHING WENT WRONG — TRY AGAIN';
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('stopBtn').addEventListener('click', ()=>{
+  manualScreen = 'screen-lock3';
+  render();
+});
+
+document.getElementById('backToTimer').addEventListener('click', ()=>{
+  manualScreen = null;
+  render();
+});
+
+document.getElementById('form3').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const val = document.getElementById('pass3').value;
+  if(val === '2011'){
+    stopAttackAudio();
+    await setState({status:'idle'});
+    await appendLog('ATTACK CANCELLED (timer stopped before completion)');
+    globalState = await getState();
+    lastKnownStatus = globalState.status;
+    manualScreen = null;
+    localStage = 'screen-stage2';
+    document.getElementById('err3').textContent='';
+    render();
+  } else {
+    shakeError(document.getElementById('pass3'), document.getElementById('err3'), 'INCORRECT OVERRIDE CODE');
+  }
+});
+
+document.getElementById('resetBtn').addEventListener('click', async ()=>{
+  stopAttackAudio();
+  await setState({status:'idle'});
+  await appendLog('SYSTEM RESET (admin)');
+  globalState = await getState();
+  lastKnownStatus = globalState.status;
+  localStage = 'screen-lock1';
+  completionLogged = false;
+  render();
+});
+
+// ---------- Log modal ----------
+document.getElementById('openLog').addEventListener('click', async ()=>{
+  const log = await getLog();
+  const body = document.getElementById('logBody');
+  body.innerHTML = log.length ? log.map(l=>`<tr><td>${l.event}</td><td>${l.timestamp}</td></tr>`).join('') : '<tr><td colspan="2">No events yet.</td></tr>';
+  document.getElementById('logModal').classList.add('active');
+});
+document.getElementById('closeLog').addEventListener('click', ()=>{
+  document.getElementById('logModal').classList.remove('active');
+});
+
+document.getElementById('exportCsv').addEventListener('click', async ()=>{
+  const log = await getLog();
+  let csv = 'Event,Timestamp\n';
+  log.forEach(l=>{ csv += `"${l.event}","${l.timestamp}"\n`; });
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'attack-log.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// ---------- Init ----------
+(async function init(){
+  globalState = await getState();
+  lastKnownStatus = globalState.status;
+  if(globalState.status === 'running'){
+    playAttackAudio();
+  }
+  render();
+})();
+</script>
+
+</body>
+</html>
