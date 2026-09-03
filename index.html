@@ -332,6 +332,33 @@
 
   .small-note{ font-size:10px; color:#3a3a3a; margin-top:14px; letter-spacing:1px; }
 </style>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDOMsWuetE7w_5qyJjNRfUEiddwXeopKx0",
+    authDomain: "ankit-destroy-timer-8d28d.firebaseapp.com",
+    databaseURL: "https://ankit-destroy-timer-8d28d-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "ankit-destroy-timer-8d28d",
+    storageBucket: "ankit-destroy-timer-8d28d.firebasestorage.app",
+    messagingSenderId: "906798128136",
+    appId: "1:906798128136:web:20f13d45710f7785d145bd"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  window.fbGet = async (key) => {
+    const snap = await get(ref(db, key));
+    return snap.exists() ? snap.val() : null;
+  };
+  window.fbSet = async (key, value) => {
+    await set(ref(db, key), value);
+  };
+
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
 </head>
 <body>
 
@@ -541,53 +568,72 @@ function stopAttackAudio(){
 // ---------- Storage layer: window.storage (synced across everyone) ----------
 // with a localStorage fallback (this device only) so the flow still works
 // if window.storage isn't available in the current context.
+// ---------- Storage layer: Firebase (synced across everyone) ----------
 const STATE_KEY = 'ankit-timer-state';
 const LOG_KEY = 'ankit-attack-log';
 const DURATION_MS = 10*60*1000;
 let usingFallback = false;
+let firebaseReady = false;
+
+window.addEventListener('firebase-ready', ()=>{ firebaseReady = true; });
+
+function waitForFirebase(){
+  return new Promise(resolve=>{
+    if(firebaseReady) return resolve();
+    const check = setInterval(()=>{
+      if(firebaseReady){ clearInterval(check); resolve(); }
+    }, 50);
+    setTimeout(()=>{ clearInterval(check); resolve(); }, 3000);
+  });
+}
 
 async function rawGet(key){
-  if(typeof window.storage !== 'undefined' && window.storage){
+  await waitForFirebase();
+  if(firebaseReady){
     try{
-      const res = await window.storage.get(key, true);
-      return res ? res.value : null;
+      return await window.fbGet(key);
     }catch(e){
-      // key genuinely missing throws too — treat as "no value" only if it looks like a not-found;
-      // otherwise fall back to local storage for this session.
+      console.warn('Firebase get failed, using local fallback', e);
       usingFallback = true;
     }
   } else {
     usingFallback = true;
   }
-  try{ return localStorage.getItem('fallback_'+key); }catch(e){ return null; }
+  try{
+    const local = localStorage.getItem('fallback_'+key);
+    return local ? JSON.parse(local) : null;
+  }catch(e){ return null; }
 }
+
 async function rawSet(key, value){
-  if(typeof window.storage !== 'undefined' && window.storage && !usingFallback){
+  await waitForFirebase();
+  if(firebaseReady && !usingFallback){
     try{
-      await window.storage.set(key, value, true);
+      await window.fbSet(key, value);
       return;
     }catch(e){
+      console.warn('Firebase set failed, using local fallback', e);
       usingFallback = true;
     }
   }
-  try{ localStorage.setItem('fallback_'+key, value); }catch(e){}
+  try{ localStorage.setItem('fallback_'+key, JSON.stringify(value)); }catch(e){}
 }
 
 async function getState(){
-  const raw = await rawGet(STATE_KEY);
-  return raw ? JSON.parse(raw) : {status:'idle'};
+  const val = await rawGet(STATE_KEY);
+  return val || {status:'idle'};
 }
 async function setState(state){
-  await rawSet(STATE_KEY, JSON.stringify(state));
+  await rawSet(STATE_KEY, state);
 }
 async function getLog(){
-  const raw = await rawGet(LOG_KEY);
-  return raw ? JSON.parse(raw) : [];
+  const val = await rawGet(LOG_KEY);
+  return val || [];
 }
 async function appendLog(eventName){
   const log = await getLog();
   log.push({event:eventName, timestamp:new Date().toLocaleString()});
-  await rawSet(LOG_KEY, JSON.stringify(log));
+  await rawSet(LOG_KEY, log);
 }
 
 function updateSyncNote(){
