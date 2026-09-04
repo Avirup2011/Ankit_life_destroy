@@ -796,7 +796,7 @@ document.getElementById('backToTimer').addEventListener('click', ()=>{
 document.getElementById('form3').addEventListener('submit', async e=>{
   e.preventDefault();
   const val = document.getElementById('pass3').value;
-  if(val === '2011'){
+  if(val === '8080'){
     stopAttackAudio();
     await setState({status:'idle'});
     await appendLog('ATTACK CANCELLED (timer stopped before completion)');
